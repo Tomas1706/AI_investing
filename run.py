@@ -5,6 +5,7 @@ from pathlib import Path
 
 from config import load_config
 from sec import fetch_filings, extract_xbrl_timeseries
+from metrics import compute_metrics
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -127,6 +128,51 @@ def main() -> int:
             print(f"  {key}: {cnt}")
         print(f"[run] Timeseries saved at: {xbrl.get('paths', {}).get('timeseries')}")
         print("[run] Step 4 complete.")
+
+        # Step 5: Deterministic metric computation (no LLM)
+        print("[run] Step 5: Computing value-oriented metrics ...")
+        try:
+            m = compute_metrics(series)
+        except Exception as e:
+            print(f"[run] Error during metric computation: {e}")
+            return 1
+
+        # Persist metrics to cache
+        import json
+        import os
+        cik10_path = xbrl.get("paths", {}).get("facts", "").split("/")
+        # facts path is .../.cache/sec/CIK##########/companyfacts.json
+        # derive directory
+        if cik10_path:
+            cache_dir = Path("/").joinpath(*cik10_path[:-1]) if os.name != "nt" else Path("").joinpath(*cik10_path[:-1])
+        else:
+            cache_dir = out_root / ".cache" / "sec"
+        metrics_path = Path(cache_dir) / "metrics.json"
+        try:
+            metrics_path.write_text(json.dumps(m, indent=2), encoding="utf-8")
+            print(f"[run] Metrics saved at: {metrics_path}")
+        except Exception as e:
+            print(f"[run] Warning: failed to save metrics: {e}")
+
+        # Print key highlights
+        rc = m.get("metrics", {}).get("revenue_cagr", {})
+        gm = m.get("metrics", {}).get("gross_margin", {})
+        cov = m.get("metrics", {}).get("interest_coverage_latest", {})
+        lev = m.get("metrics", {}).get("leverage_latest", {})
+        print("[run] Metric highlights:")
+        print(
+            f"  Revenue CAGR: {rc.get('cagr')} over {rc.get('years')} years (start {rc.get('start_year')} → {rc.get('end_year')})"
+        )
+        print(
+            f"  Gross margin mean/std (pp): {gm.get('mean_pp')} / {gm.get('std_pp')} (drop>5pp: {gm.get('drop_gt_5pp')})"
+        )
+        print(
+            f"  Interest coverage latest ({cov.get('year')}): {cov.get('ratio')}"
+        )
+        print(
+            f"  Net debt/EBITDA latest ({lev.get('year')}): {lev.get('net_debt_to_ebitda')}"
+        )
+        print("[run] Step 5 complete.")
         return 0
 
     print(

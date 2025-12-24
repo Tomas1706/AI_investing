@@ -1,0 +1,66 @@
+{
+  "metrics": {
+    "revenue_cagr": {
+      "available": false
+    },
+    "revenue_drawdowns": {
+      "down_years": 0,
+      "max_single_year_decline_pp": 0.0
+    },
+    "gross_margin": {
+      "mean_pp": 39.07595564809705,
+      "std_pp": 0.0,
+      "years": 1,
+      "drop_gt_5pp": false
+    },
+    "operating_margin_persistence": {
+      "years": 1,
+      "positive_years": 1,
+      "persistent": true
+    },
+    "fcf": {
+      "years": 9,
+      "positive_years": 9,
+      "latest": 99584000000.0
+    },
+    "interest_coverage_latest": {
+      "year": 2023,
+      "ratio": 41.19054820415879
+    },
+    "current_ratio_latest": {
+      "year": 2025,
+      "ratio": 0.8673125765340832
+    },
+    "leverage_latest": {
+      "year": 2025,
+      "net_debt_excl_restricted": 66719000000.0,
+      "net_debt_incl_restricted": 66719000000.0,
+      "ebitda_year": 2025,
+      "ebitda_approx": 125820000000.0,
+      "net_debt_to_ebitda": 0.5302734064536639
+    },
+    "share_count_trend": {
+      "start_year": 2009,
+      "end_year": 2025,
+      "start": 889292000.0,
+      "end": 15812547000.0,
+      "pct_change": 1678.1051668068533,
+      "direction": "dilution"
+    }
+  },
+  "provenance": {
+    "revenue_cagr": {},
+    "fcf": {
+      "cfo": {
+        "form": "10-K",
+        "accn": "0000320193-25-000079",
+        "filed": "2025-10-31"
+      },
+      "capex": {
+        "form": "10-K",
+        "accn": "0000320193-25-000079",
+        "filed": "2025-10-31"
+      }
+    }
+  }
+}

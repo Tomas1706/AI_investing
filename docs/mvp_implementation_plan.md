@@ -37,7 +37,7 @@ Use this checklist to drive implementation. Each step includes success criteria 
     - Partial unavailability does not crash; logs warnings and proceeds.
 
 ## 4) Structured Data Extraction (XBRL)
-- [ ] Implement XBRL extraction with tag priority map and fallbacks.
+- [x] Implement XBRL extraction with tag priority map and fallbacks.
   - Success criteria:
     - Extracts time series for revenue, COGS, gross profit, operating income, net income, diluted shares, CFO, CapEx, cash, debt components, current assets/liabilities, interest expense, D&A.
     - Applies tag priority and fallbacks; logs which tag provided each metric.
@@ -45,7 +45,7 @@ Use this checklist to drive implementation. Each step includes success criteria 
     - Handles missing tags gracefully and marks metrics “Not available”.
 
 ## 5) Deterministic Metrics (No LLM)
-- [ ] Compute key value metrics using GAAP and derived formulas.
+- [x] Compute key value metrics using GAAP and derived formulas.
   - Success criteria:
     - Revenue CAGR computed over the longest available window (prefer 10y; else 7y; else 5y) and window explicitly reported.
     - Gross/operating margin levels and stability computed (std‑dev; flag >5pp single‑year drops).
