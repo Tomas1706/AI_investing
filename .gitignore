@@ -1,0 +1,19 @@
+# Environment and local config
+.env
+.env.local
+
+# Python cache and build artifacts (anticipating Python project)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+build/
+dist/
+*.egg-info/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
