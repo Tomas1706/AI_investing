@@ -268,9 +268,18 @@ def extract_xbrl_timeseries(
 
     facts_url = f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik10}.json"
     facts = client.get_json(facts_url)
-    (cache_dir / "companyfacts.json").write_text(
-        json.dumps(facts, indent=2), encoding="utf-8"
-    )
+    facts_json = json.dumps(facts, indent=2)
+    facts_path_primary = cache_dir / "companyfacts.json"
+    try:
+        facts_path_primary.write_text(facts_json, encoding="utf-8")
+        facts_path_str = str(facts_path_primary)
+    except Exception:
+        # Windows path edge cases: fall back to a shorter, flat path
+        fallback_dir = out_root / ".cache" / "sec"
+        fallback_dir.mkdir(parents=True, exist_ok=True)
+        facts_path_fallback = fallback_dir / f"companyfacts_{cik10}.json"
+        facts_path_fallback.write_text(facts_json, encoding="utf-8")
+        facts_path_str = str(facts_path_fallback)
 
     def get_facts(tag: str) -> Optional[Dict[str, Any]]:
         # facts["facts"]["us-gaap"][tag]
@@ -549,7 +558,7 @@ def extract_xbrl_timeseries(
         "series": series,
         "provenance": provenance,
         "paths": {
-            "facts": str(cache_dir / "companyfacts.json"),
+            "facts": facts_path_str,
             "timeseries": saved_path,
         },
     }

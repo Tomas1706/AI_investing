@@ -1,0 +1,31 @@
+{
+  "durability": {
+    "revenue_growth_ok": true,
+    "revenue_stability_ok": false
+  },
+  "moat": {
+    "gross_margin_stable": false,
+    "operating_margin_persistent": true
+  },
+  "balance_sheet": {
+    "leverage_ok": true,
+    "coverage_ok": true,
+    "liquidity_ok": false
+  },
+  "capital_allocation": {
+    "fcf_consistent": true,
+    "dilution_flag": false,
+    "reduction_flag": true
+  },
+  "insiders": {
+    "alignment": null,
+    "clustered_buying_events": null,
+    "routine_sellers": null
+  },
+  "red_flags": {
+    "negative_fcf_sustained": false,
+    "high_leverage": false,
+    "weak_coverage": false,
+    "revenue_declines": false
+  }
+}

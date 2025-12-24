@@ -17,3 +17,5 @@ dist/
 Thumbs.db
 .vscode/
 .idea/
+
+.md

@@ -22,6 +22,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--asof", help="As-of date YYYY-MM-DD (filters filings up to this date)")
     p.add_argument("--no-web", action="store_true", help="Disable web context (later phase)")
     p.add_argument("--alpha-vantage", action="store_true", help="Also fetch fundamental data via Alpha Vantage (requires API key)")
+    p.add_argument("--llm", action="store_true", help="Use OpenAI to generate a memo section if OPENAI_API_KEY is set")
     p.add_argument(
         "--verbose", "-v", action="count", default=0, help="Increase verbosity"
     )
@@ -371,6 +372,71 @@ def main() -> int:
                     print("  (Alpha Vantage metrics unavailable; comparison skipped)")
         except Exception:
             pass
+        # Step 8: Report generation
+        if args.ticker:
+            print("[run] Step 8: Generating report ...")
+            from report import write_report
+            from llm import generate_memo
+
+            asof_out = asof_date.isoformat() if asof_date else datetime.utcnow().date().isoformat()
+            out_file = out_root / args.ticker.upper() / f"{args.ticker.upper()}_{asof_out}.txt"
+
+            # Build evidence bundle for LLM
+            evidence = {
+                "ticker": args.ticker.upper(),
+                "cik": cik,
+                "asof": asof_out,
+                "sec_metrics": m,
+                "sec_signals": sec_signals if 'sec_signals' in locals() else None,
+                "sec_classification": sec_class if 'sec_class' in locals() else None,
+                "sec_confidence": sec_conf if 'sec_conf' in locals() else None,
+                "alpha_vantage_metrics": avm if 'avm' in locals() else None,
+                "insiders_summary": ins_summary if 'ins_summary' in locals() else None,
+            }
+
+            memo_text = None
+            if args.llm and cfg.openai_api_key:
+                try:
+                    memo_text = generate_memo(
+                        evidence=evidence,
+                        api_key=cfg.openai_api_key,
+                        model=cfg.openai_model,
+                        temperature=0.2,
+                    )
+                except Exception as e:
+                    print(f"[run] LLM memo generation failed: {e}")
+
+            sources = [
+                xbrl.get('paths', {}).get('facts'),
+                xbrl.get('paths', {}).get('timeseries'),
+                result.get('cache_paths', {}).get('metadata'),
+            ]
+            if args.alpha_vantage:
+                sources += [
+                    (out_root / '.cache' / 'web' / 'alpha_vantage' / args.ticker.upper() / 'timeseries.json').as_posix(),
+                    (out_root / '.cache' / 'web' / 'alpha_vantage' / args.ticker.upper() / 'insider_transactions.json').as_posix(),
+                ]
+
+            write_report(
+                output_path=out_file,
+                context={
+                    "ticker": args.ticker.upper(),
+                    "cik": cik,
+                    "asof": asof_out,
+                    "company_name": result.get('companyName'),
+                    "sec_metrics": m,
+                    "sec_signals": sec_signals if 'sec_signals' in locals() else None,
+                    "sec_classification": sec_class if 'sec_class' in locals() else None,
+                    "sec_confidence": sec_conf if 'sec_conf' in locals() else None,
+                    "av_metrics": avm if 'avm' in locals() else None,
+                    "insiders_summary": ins_summary if 'ins_summary' in locals() else None,
+                    "llm_memo": memo_text,
+                    "sources": [s for s in sources if s],
+                },
+            )
+            print(f"[run] Report written to: {out_file}")
+        else:
+            print("[run] Skipping report generation: --ticker is required for output path.")
         return 0
 
     print(

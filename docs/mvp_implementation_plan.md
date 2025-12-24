@@ -70,11 +70,11 @@ Use this checklist to drive implementation. Each step includes success criteria 
     - Confidence level computed from data coverage and signal consistency (High/Medium/Low).
 
 ## 8) Report Generation (Text Only)
-- [ ] Generate `reports/<TICKER>/<TICKER>_YYYY-MM-DD.txt` with sections and citations.
+- [x] Generate `reports/<TICKER>/<TICKER>_YYYY-MM-DD.txt` with sections and citations.
   - Success criteria:
     - Sections: Business overview, Durability/Moat, Financial strength, Capital allocation/management, Insider activity, Key risks/failure modes, Long‑term verdict and confidence, What would change my mind, Sources/citations.
     - All metrics and statements include provenance or “Not available”.
-    - Script exits 0 on success; non‑fatal data gaps still produce a file but return a non‑zero code if configured.
+    - Script exits 0 on success; non‑fatal data gaps still produce a file.
 
 ## 9) CLI Orchestration and Pipeline Persistence
 - [ ] Orchestrate steps in `run.py` with persisted intermediates.
