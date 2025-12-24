@@ -6,6 +6,9 @@ from pathlib import Path
 from config import load_config
 from sec import fetch_filings, extract_xbrl_timeseries
 from metrics import compute_metrics
+from insiders import analyze_insiders
+from analysis import build_signals
+from scoring import classify
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -222,11 +225,26 @@ def main() -> int:
             pass
         print("[run] Step 5 complete.")
 
+        # Step 7: Build signals and classify (SEC path)
+        try:
+            print("[run] Step 7: Building signals and classification (SEC) ...")
+            sec_insiders = None  # SEC-native parsing not implemented; may use AV below
+            sec_signals = build_signals(m, insiders=sec_insiders)
+            sec_class, sec_conf = classify(sec_signals)
+            # Persist
+            import json
+            cik10_dir = Path(xbrl.get("paths", {}).get("facts", "")).parent if xbrl.get("paths", {}).get("facts") else (out_root/".cache"/"sec")
+            (cik10_dir / "signals.json").write_text(json.dumps(sec_signals, indent=2), encoding="utf-8")
+            (cik10_dir / "classification.json").write_text(json.dumps({"classification": sec_class, "confidence": sec_conf}, indent=2), encoding="utf-8")
+            print(f"[run] SEC classification: {sec_class} (confidence: {sec_conf})")
+        except Exception as e:
+            print(f"[run] Warning: failed to build SEC signals/classification: {e}")
+
         # Optional: Alpha Vantage fundamental series and metrics (similar to SEC pipeline)
         if args.alpha_vantage and args.ticker:
             print("[run] Alpha Vantage: fetching fundamental timeseries ...")
             try:
-                from web import fetch_alpha_vantage_series
+                from web import fetch_alpha_vantage_series, fetch_alpha_vantage_insider_transactions
 
                 a = fetch_alpha_vantage_series(
                     ticker=args.ticker.upper(),
@@ -283,8 +301,76 @@ def main() -> int:
                     f"  Net debt/EBITDA latest ({lev.get('year')}): {lev.get('net_debt_to_ebitda')}"
                 )
                 print(f"[run] Alpha Vantage timeseries at: {a.get('paths',{}).get('timeseries')}")
+                # Build AV signals/classification (optional)
+                try:
+                    av_signals = build_signals(avm)
+                    av_class, av_conf = classify(av_signals)
+                    av_signals_path = av_out_dir / "signals.json"
+                    av_class_path = av_out_dir / "classification.json"
+                    av_signals_path.write_text(_json.dumps(av_signals, indent=2), encoding="utf-8")
+                    av_class_path.write_text(_json.dumps({"classification": av_class, "confidence": av_conf}, indent=2), encoding="utf-8")
+                    print(f"[run] Alpha Vantage classification: {av_class} (confidence: {av_conf})")
+                except Exception as e:
+                    print(f"[run] Warning: failed to build AV signals/classification: {e}")
             except Exception as e:
                 print(f"[run] Alpha Vantage fetch skipped/error: {e}")
+
+            # Step 6: Insider activity analysis via Alpha Vantage
+            try:
+                print("[run] Step 6: Insider activity (Alpha Vantage) ...")
+                av_tx = fetch_alpha_vantage_insider_transactions(
+                    ticker=args.ticker.upper(),
+                    api_key=cfg.alpha_vantage_api_key or "",
+                    out_root=out_root,
+                )
+                tx = av_tx.get("transactions", [])
+                # Try to pass shares_outstanding from AV overview metrics if available
+                # (We didn't fetch overview here; skip and compute dollars-based cluster)
+                ins_summary = analyze_insiders(transactions=tx)
+                # Persist
+                import json as _json
+                av_out_dir = out_root / ".cache" / "web" / "alpha_vantage" / args.ticker.upper()
+                av_ins_path = av_out_dir / "insiders_summary.json"
+                av_ins_path.write_text(_json.dumps(ins_summary, indent=2), encoding="utf-8")
+                # Print summary
+                w = ins_summary.get("windows", {})
+                print("[run] Insider 12m: net shares =", w.get("12m", {}).get("net_shares"),
+                      ", buyers =", w.get("12m", {}).get("unique_buyers"),
+                      ", sellers =", w.get("12m", {}).get("unique_sellers"))
+                print("[run] Clustered buying events:", len(ins_summary.get("clustered_buying", {}).get("events", [])))
+                print("[run] Routine sellers flagged:", len(ins_summary.get("routine_selling", {}).get("routine_sellers", {})))
+                print(f"[run] Insider summary saved at: {av_ins_path}")
+            except Exception as e:
+                print(f"[run] Insider analysis skipped/error: {e}")
+
+        # SEC vs Alpha Vantage comparison summary (if AV ran)
+        try:
+            if args.alpha_vantage and args.ticker:
+                print("[run] SEC vs Alpha Vantage comparison (computed metrics):")
+                # SEC metrics already in m; AV metrics are avm above if fetch succeeded
+                # avm might be out of scope if AV failed; guard
+                if 'avm' in locals():
+                    def _fmt_cagr(x):
+                        if not x or not x.get('available'):
+                            return 'N/A'
+                        return f"{x.get('cagr'):.4f} over {x.get('years')}y"
+                    print("  Revenue CAGR: SEC", _fmt_cagr(m.get('metrics', {}).get('revenue_cagr')), "| AV", _fmt_cagr(avm.get('metrics', {}).get('revenue_cagr')))
+                    sec_gm = m.get('metrics', {}).get('gross_margin', {})
+                    av_gm = avm.get('metrics', {}).get('gross_margin', {})
+                    print(f"  Gross margin mean/std (pp): SEC {sec_gm.get('mean_pp')} / {sec_gm.get('std_pp')} | AV {av_gm.get('mean_pp')} / {av_gm.get('std_pp')}")
+                    sec_cov = m.get('metrics', {}).get('interest_coverage_latest', {})
+                    av_cov = avm.get('metrics', {}).get('interest_coverage_latest', {})
+                    print(f"  Interest coverage: SEC {sec_cov.get('ratio')} | AV {av_cov.get('ratio')}")
+                    sec_lev = m.get('metrics', {}).get('leverage_latest', {})
+                    av_lev = avm.get('metrics', {}).get('leverage_latest', {})
+                    print(f"  Net debt/EBITDA: SEC {sec_lev.get('net_debt_to_ebitda')} | AV {av_lev.get('net_debt_to_ebitda')}")
+                    # Classification comparison
+                    if 'av_signals' in locals():
+                        print(f"  Classification: SEC {sec_class} ({sec_conf}) | AV {av_class} ({av_conf})")
+                else:
+                    print("  (Alpha Vantage metrics unavailable; comparison skipped)")
+        except Exception:
+            pass
         return 0
 
     print(

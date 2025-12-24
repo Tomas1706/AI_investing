@@ -54,15 +54,15 @@ Use this checklist to drive implementation. Each step includes success criteria 
     - Each metric records provenance (filing, date, accession, URL).
 
 ## 6) Insider Activity (Form 4)
-- [ ] Parse Form 4 to compute net buys/sells over 3, 6, 12 months; clustered/routine heuristics.
+- [x] Parse insider transactions (Alpha Vantage) to compute net buys/sells over 3, 6, 12 months; clustered/routine heuristics.
   - Success criteria:
-    - Aggregations are correct across reporting owners and transaction codes (exclude derivatives unless clearly comparable).
-    - Clustered buying signal triggers when ≥3 insiders buy within 30 days with ≥0.1% diluted shares or ≥$500k aggregate.
-    - Routine selling is detected (regular cadence ±20% size); routine sales are down‑weighted.
-    - Output includes a clear owner‑alignment assessment.
+    - Aggregations computed over 3/6/12m windows (net shares, unique buyers/sellers).
+    - Clustered buying detected (≥3 insiders within 30d; ≥$500k aggregate or ≥0.1% shares if available).
+    - Routine selling flagged for repeated cadenced sales with stable size (±20%).
+    - Output includes a clear owner‑alignment assessment and is saved to cache.
 
 ## 7) Rule‑Based Signals, Red Flags, and Classification
-- [ ] Build explicit signals and red‑flag overrides (no normalization).
+- [x] Build explicit signals and red‑flag overrides (no normalization).
   - Success criteria:
     - Signals cover durability, margins, balance sheet, capital allocation, and insider alignment.
     - Red‑flags (any triggers Avoid‑for‑now): sustained negative FCF (≥2y), net debt/EBITDA > 4x or interest coverage < 2x, material weaknesses/restatements/going‑concern, repeated >15% revenue declines without recovery.

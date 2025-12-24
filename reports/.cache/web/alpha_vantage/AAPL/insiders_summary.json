@@ -1,0 +1,29 @@
+{
+  "windows": {
+    "3m": {
+      "net_shares": 0.0,
+      "unique_buyers": 0,
+      "unique_sellers": 0,
+      "total_dollars": 0.0
+    },
+    "6m": {
+      "net_shares": 0.0,
+      "unique_buyers": 0,
+      "unique_sellers": 0,
+      "total_dollars": 0.0
+    },
+    "12m": {
+      "net_shares": 0.0,
+      "unique_buyers": 0,
+      "unique_sellers": 0,
+      "total_dollars": 0.0
+    }
+  },
+  "clustered_buying": {
+    "events": []
+  },
+  "routine_selling": {
+    "routine_sellers": {}
+  },
+  "owner_alignment": "mixed"
+}

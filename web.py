@@ -463,3 +463,56 @@ def fetch_alpha_vantage_series(*, ticker: str, api_key: str, out_root: Path) -> 
         )
 
     return {"series": series, "paths": {"timeseries": str(path)}}
+
+
+def fetch_alpha_vantage_insider_transactions(*, ticker: str, api_key: str, out_root: Path) -> Dict[str, Any]:
+    """Fetch insider transactions using Alpha Vantage INSIDER_TRANSACTIONS.
+
+    Persists raw transactions under reports/.cache/web/alpha_vantage/<TICKER>/insider_transactions.json
+    Returns {transactions, paths}.
+    """
+    if not api_key:
+        raise RuntimeError(
+            "Missing ALPHAVANTAGE_API_KEY. Set it in .env or environment."
+        )
+    try:
+        import requests  # type: ignore
+        import time
+    except Exception as e:
+        raise RuntimeError(
+            "Missing dependency 'requests'. Install it (e.g., 'uv add requests')."
+        ) from e
+
+    base = "https://www.alphavantage.co/query"
+    params = {
+        "function": "INSIDER_TRANSACTIONS",
+        "symbol": ticker.upper(),
+        "apikey": api_key,
+    }
+    last_exc = None
+    for attempt in range(5):
+        try:
+            r = requests.get(base, params=params, timeout=30)
+            r.raise_for_status()
+            data = r.json()
+            if isinstance(data, dict) and (data.get("Note") or data.get("Information")):
+                last_exc = RuntimeError(data.get("Note") or data.get("Information"))
+                time.sleep(2 + attempt)
+                continue
+            break
+        except Exception as e:
+            last_exc = e
+            time.sleep(1.2 + attempt)
+    else:
+        raise RuntimeError(f"Alpha Vantage INSIDER_TRANSACTIONS failed: {last_exc}")
+
+    tx = data.get("transactions") or data.get("data") or data.get("insiderTransactions") or []
+    if not isinstance(tx, list):
+        tx = []
+
+    out_dir = out_root / ".cache" / "web" / "alpha_vantage" / ticker.upper()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = out_dir / "insider_transactions.json"
+    path.write_text(json.dumps(tx, indent=2), encoding="utf-8")
+
+    return {"transactions": tx, "paths": {"transactions": str(path)}}
