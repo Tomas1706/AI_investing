@@ -18,6 +18,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", help="Output directory root")
     p.add_argument("--asof", help="As-of date YYYY-MM-DD (filters filings up to this date)")
     p.add_argument("--no-web", action="store_true", help="Disable web context (later phase)")
+    p.add_argument("--alpha-vantage", action="store_true", help="Also fetch fundamental data via Alpha Vantage (requires API key)")
     p.add_argument(
         "--verbose", "-v", action="count", default=0, help="Increase verbosity"
     )
@@ -172,7 +173,118 @@ def main() -> int:
         print(
             f"  Net debt/EBITDA latest ({lev.get('year')}): {lev.get('net_debt_to_ebitda')}"
         )
+        # Debug: show components for EBITDA approximation (latest FY)
+        try:
+            # Find latest overlapping FY for operating income and D&A
+            op = xbrl.get("series", {}).get("operating_income", [])
+            da = xbrl.get("series", {}).get("depreciation_amortization", [])
+            def _annual_map(rows):
+                mp = {}
+                for r in rows:
+                    fy = r.get("fy")
+                    if isinstance(fy, int):
+                        year = fy
+                    else:
+                        end = (r.get("end") or "")[:4]
+                        try:
+                            year = int(end)
+                        except Exception:
+                            continue
+                    # prefer FY, then latest filed
+                    bucket = mp.setdefault(year, [])
+                    bucket.append(r)
+                ann = {}
+                for y, rows in mp.items():
+                    fyrows = [x for x in rows if (x.get("fp") or "").upper() == "FY"] or rows
+                    fyrows.sort(key=lambda x: x.get("filed") or "", reverse=True)
+                    ann[y] = fyrows[0]
+                return ann
+            op_a = _annual_map(op)
+            da_a = _annual_map(da)
+            overlap_years = sorted(set(op_a.keys()) & set(da_a.keys()))
+            if overlap_years:
+                y = overlap_years[-1]
+                opy, day = op_a[y], da_a[y]
+                opv, dav = opy.get("val"), day.get("val")
+                print("[debug] EBITDA components (latest FY):")
+                print(
+                    f"  Year {y} OperatingIncomeLoss: {opv} (form {opy.get('form')}, accn {opy.get('accn')}, filed {opy.get('filed')})"
+                )
+                print(
+                    f"  Year {y} Depreciation&Amortization: {dav} (form {day.get('form')}, accn {day.get('accn')}, filed {day.get('filed')}, tag {day.get('tag')}, unit {day.get('unit')})"
+                )
+                try:
+                    approx = float(opv) + float(dav)
+                    print(f"  EBITDA approx (computed): {approx}")
+                except Exception:
+                    pass
+        except Exception:
+            pass
         print("[run] Step 5 complete.")
+
+        # Optional: Alpha Vantage fundamental series and metrics (similar to SEC pipeline)
+        if args.alpha_vantage and args.ticker:
+            print("[run] Alpha Vantage: fetching fundamental timeseries ...")
+            try:
+                from web import fetch_alpha_vantage_series
+
+                a = fetch_alpha_vantage_series(
+                    ticker=args.ticker.upper(),
+                    api_key=cfg.alpha_vantage_api_key or "",
+                    out_root=out_root,
+                )
+                av_series = a.get("series", {})
+                print("[run] Alpha Vantage series counts:")
+                for key in [
+                    "revenue",
+                    "cost_of_revenue",
+                    "gross_profit",
+                    "operating_income",
+                    "net_income",
+                    "diluted_shares",
+                    "cfo",
+                    "capex",
+                    "cash",
+                    "total_debt",
+                    "assets_current",
+                    "liabilities_current",
+                    "interest_expense",
+                    "depreciation_amortization",
+                ]:
+                    print(f"  {key}: {len(av_series.get(key, []))}")
+
+                # Compute comparable metrics on AV series
+                avm = compute_metrics(av_series)
+                # Persist AV metrics alongside timeseries
+                import json as _json
+                av_out_dir = out_root / ".cache" / "web" / "alpha_vantage" / args.ticker.upper()
+                av_out_dir.mkdir(parents=True, exist_ok=True)
+                av_metrics_path = av_out_dir / "metrics.json"
+                try:
+                    av_metrics_path.write_text(_json.dumps(avm, indent=2), encoding="utf-8")
+                    print(f"[run] Alpha Vantage metrics saved at: {av_metrics_path}")
+                except Exception as e:
+                    print(f"[run] Warning: failed to save AV metrics: {e}")
+                print("[run] Alpha Vantage metric highlights:")
+                rc = avm.get("metrics", {}).get("revenue_cagr", {})
+                gm = avm.get("metrics", {}).get("gross_margin", {})
+                cov = avm.get("metrics", {}).get("interest_coverage_latest", {})
+                lev = avm.get("metrics", {}).get("leverage_latest", {})
+                print(
+                    f"  Revenue CAGR: {rc.get('cagr')} over {rc.get('years')} years (start {rc.get('start_year')} → {rc.get('end_year')})"
+                )
+                print(
+                    f"  Gross margin mean/std (pp): {gm.get('mean_pp')} / {gm.get('std_pp')} (drop>5pp: {gm.get('drop_gt_5pp')})"
+                )
+                print(
+                    f"  Interest coverage latest ({cov.get('year')}): {cov.get('ratio')}"
+                )
+                print(
+                    f"  Net debt/EBITDA latest ({lev.get('year')}): {lev.get('net_debt_to_ebitda')}"
+                )
+                print(f"[run] Alpha Vantage timeseries at: {a.get('paths',{}).get('timeseries')}")
+            except Exception as e:
+                print(f"[run] Alpha Vantage fetch skipped/error: {e}")
         return 0
 
     print(

@@ -43,6 +43,7 @@ class Config:
     override_cik: Optional[str] = None
     bdmcp_api_key: Optional[str] = None  # later phase
     bdmcp_api_base: Optional[str] = None  # later phase
+    alpha_vantage_api_key: Optional[str] = None
 
 
 def load_config() -> Config:
@@ -57,6 +58,7 @@ def load_config() -> Config:
     override_cik = os.getenv("OVERRIDE_CIK") or None
     bdmcp_api_key = os.getenv("BDMCP_API_KEY") or None
     bdmcp_api_base = os.getenv("BDMCP_API_BASE") or None
+    alpha_vantage_api_key = os.getenv("ALPHAVANTAGE_API_KEY") or None
 
     # Simple warnings for missing/placeholder values
     if sec_user_agent in ("", "ai-investing/cli contact@example.com"):
@@ -83,5 +85,5 @@ def load_config() -> Config:
         override_cik=override_cik,
         bdmcp_api_key=bdmcp_api_key,
         bdmcp_api_base=bdmcp_api_base,
+        alpha_vantage_api_key=alpha_vantage_api_key,
     )
-

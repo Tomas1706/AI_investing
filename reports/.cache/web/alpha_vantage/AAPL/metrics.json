@@ -1,0 +1,85 @@
+{
+  "metrics": {
+    "revenue_cagr": {
+      "available": true,
+      "cagr": 0.31919868048550515,
+      "years": 9,
+      "start_year": 2006,
+      "end_year": 2015,
+      "start_val": 19315000000.0,
+      "end_val": 233715000000.0
+    },
+    "revenue_drawdowns": {
+      "down_years": 3,
+      "max_single_year_decline_pp": 7.734206191301371
+    },
+    "gross_margin": {
+      "mean_pp": 39.58378831401586,
+      "std_pp": 4.129870683217428,
+      "years": 20,
+      "drop_gt_5pp": true
+    },
+    "operating_margin_persistence": {
+      "years": 20,
+      "positive_years": 20,
+      "persistent": true
+    },
+    "fcf": {
+      "years": 20,
+      "positive_years": 20,
+      "latest": 98767000000.0
+    },
+    "interest_coverage_latest": {
+      "year": 2023,
+      "ratio": 29.062039155860667
+    },
+    "current_ratio_latest": {
+      "year": 2025,
+      "ratio": 0.8932929222186667
+    },
+    "leverage_latest": {
+      "year": 2025,
+      "net_debt_excl_restricted": 161380000000.0,
+      "net_debt_incl_restricted": 161380000000.0,
+      "ebitda_year": 2025,
+      "ebitda_approx": 144748000000.0,
+      "net_debt_to_ebitda": 1.1149031420123248
+    },
+    "share_count_trend": {
+      "start_year": 2006,
+      "end_year": 2025,
+      "start": 24570728000.0,
+      "end": 15004697000.0,
+      "pct_change": -38.93263154433193,
+      "direction": "reduction"
+    }
+  },
+  "provenance": {
+    "revenue_cagr": {
+      "start": {
+        "form": "ANNUAL",
+        "accn": null,
+        "filed": null,
+        "end": "2006-09-30"
+      },
+      "end": {
+        "form": "ANNUAL",
+        "accn": null,
+        "filed": null,
+        "end": "2015-09-30"
+      }
+    },
+    "fcf": {
+      "cfo": {
+        "form": "ANNUAL",
+        "accn": null,
+        "filed": null
+      },
+      "capex": {
+        "form": "ANNUAL",
+        "accn": null,
+        "filed": null
+      }
+    }
+  }
+}
