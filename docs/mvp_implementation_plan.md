@@ -7,12 +7,12 @@ Use this checklist to drive implementation. Each step includes success criteria 
 - [x] = Done
 
 ## 1) Config + Project Scaffolding
-- [ ] Implement `config.py` that loads from `.env` and environment variables.
+- [x] Implement `config.py` that loads from `.env` and environment variables.
   - Success criteria:
     - `SEC_USER_AGENT` and `OUTPUT_DIR` are read correctly.
     - Missing vars produce clear warnings with safe defaults.
     - `.env` is ignored by git (`.gitignore` contains `.env`).
-- [ ] Create basic module skeletons: `run.py`, `sec.py`, `metrics.py`, `insiders.py`, `report.py`, `cache.py` (optional), `analysis.py`, `scoring.py`.
+- [x] Create basic module skeletons: `run.py`, `sec.py`, `metrics.py`, `insiders.py`, `report.py`, `cache.py` (optional), `analysis.py`, `scoring.py`.
   - Success criteria:
     - Each module imports without errors and exposes stubbed functions.
     - `run.py --help` prints CLI usage.
@@ -29,7 +29,7 @@ Use this checklist to drive implementation. Each step includes success criteria 
     - If multiple matches are found (rare), CLI prints choices and exits with guidance.
 
 ## 3) SEC Filings Retrieval
-- [ ] Implement retrieval for 10‑K, last 2–3 10‑Q, recent 8‑K (≤90 days), DEF 14A, and Form 4 (24‑month lookback).
+- [x] Implement retrieval for 10‑K, last 2–3 10‑Q, recent 8‑K (≤90 days), DEF 14A, and Form 4 (24‑month lookback).
   - Success criteria:
     - Files metadata captured: form type, filing date, accession, SEC URL.
     - Raw text stored (or pointer/URL if text fetch is deferred) with consistent paths.
@@ -89,4 +89,3 @@ Use this checklist to drive implementation. Each step includes success criteria 
     - Reports produced with expected structure.
     - Logs show tag selection, missing data handling, and rate‑limit compliance.
     - Manual spot checks confirm citations map to correct filings.
-

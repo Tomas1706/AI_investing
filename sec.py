@@ -253,5 +253,303 @@ def fetch_filings(
 
 
 # Placeholder for Step 4 extraction entry to keep API consistent with imports elsewhere
-def extract_xbrl_timeseries(cik: str) -> Dict[str, object]:
-    raise NotImplementedError("extract_xbrl_timeseries stub (to be implemented in Step 4)")
+def extract_xbrl_timeseries(
+    *, cik: str, out_root: Path, user_agent: str
+) -> Dict[str, Any]:
+    """Extract structured financial timeseries from SEC Company Facts API.
+
+    Returns dict with per-metric series and output paths. Persists a combined
+    tidy timeseries file (Parquet if available, else JSON).
+    """
+    cik10 = _normalize_cik(cik)
+    client = SECClient(user_agent=user_agent)
+    cache_dir = out_root / ".cache" / "sec" / cik10
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    facts_url = f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik10}.json"
+    facts = client.get_json(facts_url)
+    (cache_dir / "companyfacts.json").write_text(
+        json.dumps(facts, indent=2), encoding="utf-8"
+    )
+
+    def get_facts(tag: str) -> Optional[Dict[str, Any]]:
+        # facts["facts"]["us-gaap"][tag]
+        try:
+            taxonomy, t = tag.split(":", 1)
+        except ValueError:
+            taxonomy, t = "us-gaap", tag
+        node = facts.get("facts", {}).get(taxonomy, {}).get(t)
+        return node
+
+    def extract_series(tag_list: List[str], unit_prefs: List[str]) -> (List[Dict[str, Any]], Optional[str], Optional[str]):
+        # returns (series, chosen_tag, chosen_unit)
+        for tag in tag_list:
+            node = get_facts(tag)
+            if not node:
+                continue
+            units = node.get("units", {})
+            # Try preferred units in order
+            for unit in unit_prefs:
+                entries = units.get(unit)
+                if not entries:
+                    continue
+                # Normalize by end date, keep latest filed per end
+                best_by_end: Dict[str, Dict[str, Any]] = {}
+                for e in entries:
+                    end = e.get("end") or e.get("date")
+                    val = e.get("val")
+                    if end is None or val is None:
+                        continue
+                    filed = e.get("filed") or ""
+                    cur = best_by_end.get(end)
+                    if cur is None or (filed and filed > (cur.get("filed") or "")):
+                        best_by_end[end] = e
+                # Build tidy rows
+                rows: List[Dict[str, Any]] = []
+                for end, e in best_by_end.items():
+                    rows.append(
+                        {
+                            "end": end,
+                            "val": e.get("val"),
+                            "fy": e.get("fy"),
+                            "fp": e.get("fp"),
+                            "form": e.get("form"),
+                            "accn": e.get("accn"),
+                            "filed": e.get("filed"),
+                            "tag": tag,
+                            "unit": unit,
+                        }
+                    )
+                # Sort by end date
+                rows.sort(key=lambda r: r["end"] or "")
+                if rows:
+                    return rows, tag, unit
+        return [], None, None
+
+    # Define tag priority according to the plan
+    tags = {
+        "revenue": [
+            "us-gaap:Revenues",
+            "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
+            "us-gaap:SalesRevenueNet",
+            "us-gaap:SalesRevenueGoodsNet",
+            "us-gaap:SalesRevenueServicesNet",
+            # Financials model fallbacks could be handled later
+        ],
+        "cost_of_revenue": [
+            "us-gaap:CostOfRevenue",
+            "us-gaap:CostOfGoodsAndServicesSold",
+            "us-gaap:CostOfGoodsSold",
+            "us-gaap:CostOfServices",
+        ],
+        "gross_profit": [
+            "us-gaap:GrossProfit",
+        ],
+        "operating_income": [
+            "us-gaap:OperatingIncomeLoss",
+            "us-gaap:IncomeLossFromContinuingOperationsBeforeIncomeTaxes",
+        ],
+        "net_income": [
+            "us-gaap:NetIncomeLoss",
+            "us-gaap:ProfitLoss",
+            "us-gaap:NetIncomeLossAvailableToCommonStockholdersBasic",
+        ],
+        "diluted_shares": [
+            "us-gaap:WeightedAverageNumberOfDilutedSharesOutstanding",
+            "us-gaap:WeightedAverageNumberOfSharesOutstandingDiluted",
+            "us-gaap:CommonStockSharesOutstanding",
+        ],
+        "cfo": [
+            "us-gaap:NetCashProvidedByUsedInOperatingActivities",
+            "us-gaap:NetCashProvidedByUsedInOperatingActivitiesContinuingOperations",
+        ],
+        "capex": [
+            "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+            "us-gaap:PaymentsToAcquireProductiveAssets",
+            "us-gaap:PaymentsToAcquireFixedAssets",
+            "us-gaap:PaymentsToAcquireOtherPropertyPlantAndEquipment",
+        ],
+        "proceeds_ppe": [
+            "us-gaap:ProceedsFromSaleOfPropertyPlantAndEquipment",
+        ],
+        "cash": [
+            "us-gaap:CashAndCashEquivalentsAtCarryingValue",
+        ],
+        "restricted_cash": [
+            "us-gaap:RestrictedCashAndCashEquivalentsAtCarryingValue",
+            "us-gaap:RestrictedCashAndCashEquivalentsCurrent",
+            "us-gaap:RestrictedCashAndCashEquivalentsNoncurrent",
+        ],
+        "lt_debt_current": [
+            "us-gaap:LongTermDebtCurrent",
+        ],
+        "lt_debt_noncurrent": [
+            "us-gaap:LongTermDebtNoncurrent",
+        ],
+        "short_term_borrowings": [
+            "us-gaap:ShortTermBorrowings",
+            "us-gaap:DebtCurrent",
+        ],
+        "assets_current": [
+            "us-gaap:AssetsCurrent",
+        ],
+        "liabilities_current": [
+            "us-gaap:LiabilitiesCurrent",
+        ],
+        "interest_expense": [
+            "us-gaap:InterestExpense",
+            "us-gaap:InterestExpenseNonoperating",
+        ],
+        "depreciation_amortization": [
+            "us-gaap:DepreciationDepletionAndAmortization",
+            "us-gaap:DepreciationAndAmortization",
+            "us-gaap:Depreciation",
+            "us-gaap:AmortizationOfIntangibleAssets",
+        ],
+        "assets_total": [
+            "us-gaap:Assets",
+        ],
+        "income_tax_expense": [
+            "us-gaap:IncomeTaxExpenseBenefit",
+        ],
+        "pretax_income": [
+            "us-gaap:IncomeLossFromContinuingOperationsBeforeIncomeTaxes",
+        ],
+        "short_term_debt": [
+            "us-gaap:ShortTermBorrowings",
+        ],
+    }
+
+    # Unit preferences per metric
+    USD = ["USD", "usd"]
+    SHARES = ["shares", "SHARES"]
+    PURE = ["pure"]
+    unit_prefs = {
+        "revenue": USD,
+        "cost_of_revenue": USD,
+        "gross_profit": USD,
+        "operating_income": USD,
+        "net_income": USD,
+        "diluted_shares": SHARES,
+        "cfo": USD,
+        "capex": USD,
+        "proceeds_ppe": USD,
+        "cash": USD,
+        "restricted_cash": USD,
+        "lt_debt_current": USD,
+        "lt_debt_noncurrent": USD,
+        "short_term_borrowings": USD,
+        "assets_current": USD,
+        "liabilities_current": USD,
+        "interest_expense": USD,
+        "depreciation_amortization": USD,
+        "assets_total": USD,
+        "income_tax_expense": USD,
+        "pretax_income": USD,
+        "short_term_debt": USD,
+    }
+
+    series: Dict[str, List[Dict[str, Any]]] = {}
+    provenance: Dict[str, Dict[str, str]] = {}
+
+    for metric, tag_list in tags.items():
+        rows, chosen_tag, chosen_unit = extract_series(tag_list, unit_prefs.get(metric, USD))
+        if rows:
+            series[metric] = rows
+            provenance[metric] = {"tag": chosen_tag or "", "unit": chosen_unit or ""}
+        else:
+            series[metric] = []
+            provenance[metric] = {"tag": "", "unit": ""}
+
+    # Derived: gross_profit if missing and both revenue + cost_of_revenue present
+    if not series.get("gross_profit") and series.get("revenue") and series.get("cost_of_revenue"):
+        # Map by end date
+        rev = {r["end"]: r for r in series["revenue"]}
+        cogs = {r["end"]: r for r in series["cost_of_revenue"]}
+        rows: List[Dict[str, Any]] = []
+        for end, r in rev.items():
+            if end in cogs and r.get("val") is not None and cogs[end].get("val") is not None:
+                rows.append(
+                    {
+                        "end": end,
+                        "val": r["val"] - cogs[end]["val"],
+                        "fy": r.get("fy"),
+                        "fp": r.get("fp"),
+                        "form": r.get("form"),
+                        "accn": r.get("accn"),
+                        "filed": r.get("filed"),
+                        "tag": "derived:gross_profit",
+                        "unit": provenance["revenue"]["unit"] or "USD",
+                    }
+                )
+        rows.sort(key=lambda r: r["end"] or "")
+        series["gross_profit"] = rows
+        provenance["gross_profit"] = {"tag": "derived:revenue-cost_of_revenue", "unit": "USD"}
+
+    # Derived: total debt
+    def _to_map(key: str) -> Dict[str, Dict[str, Any]]:
+        return {r["end"]: r for r in series.get(key, [])}
+
+    lt_cur = _to_map("lt_debt_current")
+    lt_non = _to_map("lt_debt_noncurrent")
+    stb = _to_map("short_term_borrowings")
+    rows_td: List[Dict[str, Any]] = []
+    date_keys = set(lt_cur.keys()) | set(lt_non.keys()) | set(stb.keys())
+    for end in sorted(date_keys):
+        val = 0.0
+        for m in (lt_cur, lt_non, stb):
+            if end in m and m[end].get("val") is not None:
+                val += float(m[end]["val"])
+        rows_td.append(
+            {
+                "end": end,
+                "val": val,
+                "fy": lt_cur.get(end, lt_non.get(end, stb.get(end, {}))).get("fy"),
+                "fp": lt_cur.get(end, lt_non.get(end, stb.get(end, {}))).get("fp"),
+                "form": lt_cur.get(end, lt_non.get(end, stb.get(end, {}))).get("form"),
+                "accn": lt_cur.get(end, lt_non.get(end, stb.get(end, {}))).get("accn"),
+                "filed": lt_cur.get(end, lt_non.get(end, stb.get(end, {}))).get("filed"),
+                "tag": "derived:total_debt",
+                "unit": "USD",
+            }
+        )
+    series["total_debt"] = rows_td
+    provenance["total_debt"] = {"tag": "derived:sum(lt_debt_current,lt_debt_noncurrent,short_term_borrowings)", "unit": "USD"}
+
+    # Persist tidy timeseries
+    timeseries_rows: List[Dict[str, Any]] = []
+    for metric, rows in series.items():
+        for r in rows:
+            timeseries_rows.append({"metric": metric, **r})
+
+    ts_path_parquet = cache_dir / "timeseries.parquet"
+    ts_path_json = cache_dir / "timeseries.json"
+
+    saved_path: Optional[str] = None
+    # Try Parquet first
+    try:
+        import pandas as pd  # type: ignore
+        import pyarrow as pa  # type: ignore
+        import pyarrow.parquet as pq  # type: ignore
+
+        df = pd.DataFrame(timeseries_rows)
+        if not df.empty:
+            table = pa.Table.from_pandas(df)
+            pq.write_table(table, ts_path_parquet)
+            saved_path = str(ts_path_parquet)
+        else:
+            ts_path_json.write_text(json.dumps(timeseries_rows, indent=2), encoding="utf-8")
+            saved_path = str(ts_path_json)
+    except Exception:
+        # Fallback to JSON
+        ts_path_json.write_text(json.dumps(timeseries_rows, indent=2), encoding="utf-8")
+        saved_path = str(ts_path_json)
+
+    return {
+        "series": series,
+        "provenance": provenance,
+        "paths": {
+            "facts": str(cache_dir / "companyfacts.json"),
+            "timeseries": saved_path,
+        },
+    }

@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 
 from config import load_config
-from sec import fetch_filings
+from sec import fetch_filings, extract_xbrl_timeseries
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -92,6 +92,41 @@ def main() -> int:
         print(f"  Form 4 (24m) count: {len(sel.get('4', []))}")
         print(f"[run] Metadata cached at: {result.get('cache_paths', {}).get('metadata')}")
         print("[run] Step 3 complete.")
+
+        # Step 4: Structured SEC financial data extraction (XBRL)
+        print(f"[run] Step 4: Extracting XBRL timeseries for CIK {cik} ...")
+        try:
+            xbrl = extract_xbrl_timeseries(
+                cik=cik,
+                out_root=out_root,
+                user_agent=cfg.sec_user_agent,
+            )
+        except Exception as e:
+            print(f"[run] Error during XBRL extraction: {e}")
+            return 1
+
+        series = xbrl.get("series", {})
+        print("[run] Extracted series counts:")
+        for key in [
+            "revenue",
+            "cost_of_revenue",
+            "gross_profit",
+            "operating_income",
+            "net_income",
+            "diluted_shares",
+            "cfo",
+            "capex",
+            "cash",
+            "total_debt",
+            "assets_current",
+            "liabilities_current",
+            "interest_expense",
+            "depreciation_amortization",
+        ]:
+            cnt = len(series.get(key, []))
+            print(f"  {key}: {cnt}")
+        print(f"[run] Timeseries saved at: {xbrl.get('paths', {}).get('timeseries')}")
+        print("[run] Step 4 complete.")
         return 0
 
     print(
