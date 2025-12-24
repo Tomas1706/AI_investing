@@ -4,6 +4,7 @@ from datetime import datetime
 from pathlib import Path
 
 from config import load_config
+from sec import fetch_filings
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -44,7 +45,7 @@ def main() -> int:
             print("[run] Error: --asof must be YYYY-MM-DD")
             return 2
 
-    # Stub: for step 1 we only set up CLI and config
+    # For now, Step 2 (ticker->CIK) is skipped; require --cik for Step 3
     if not args.ticker and not args.cik:
         print("[run] Error: --ticker or --cik is required")
         parser.print_help()
@@ -60,11 +61,44 @@ def main() -> int:
     print(f"  asof: {asof_date}")
     print(f"  no_web: {args.no_web}")
 
-    # Step 1 success criteria ends here; further steps will be implemented next.
-    print("[run] CLI scaffolding OK. Proceed to Step 2 (Ticker→CIK).")
-    return 0
+    # Proceed to Step 3 (SEC filings retrieval) when CIK is provided
+    if args.cik or cfg.override_cik:
+        cik = (args.cik or cfg.override_cik).strip()
+        print(f"[run] Step 3: Fetching SEC filings for CIK {cik} ...")
+        try:
+            result = fetch_filings(
+                cik=cik,
+                out_root=out_root,
+                user_agent=cfg.sec_user_agent,
+                form4_lookback_months=24,
+                recent_q_count=3,
+            )
+        except Exception as e:
+            print(f"[run] Error during filings retrieval: {e}")
+            return 1
+
+        # Basic summary
+        sel = result.get("selected", {})
+        print("[run] Retrieved filings summary:")
+        print(f"  10-K latest: {sel.get('10-K', {}).get('filingDate')}")
+        print(
+            f"  10-Q count (latest {len(sel.get('10-Q', []))}): "
+            + ", ".join([f.get('filingDate') for f in sel.get('10-Q', [])])
+        )
+        print(
+            f"  8-K in last 90d: {len(sel.get('8-K', []))}"
+        )
+        print(f"  DEF 14A latest: {sel.get('DEF 14A', {}).get('filingDate')}")
+        print(f"  Form 4 (24m) count: {len(sel.get('4', []))}")
+        print(f"[run] Metadata cached at: {result.get('cache_paths', {}).get('metadata')}")
+        print("[run] Step 3 complete.")
+        return 0
+
+    print(
+        "[run] Step 2 (Ticker→CIK) not implemented. Provide --cik to proceed with Step 3."
+    )
+    return 2
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
