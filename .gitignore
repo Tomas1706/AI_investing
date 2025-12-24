@@ -18,4 +18,6 @@ Thumbs.db
 .vscode/
 .idea/
 
-.md
+# Ignore documentation outputs
+docs/
+

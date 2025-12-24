@@ -379,7 +379,7 @@ def main() -> int:
             from llm import generate_memo
 
             asof_out = asof_date.isoformat() if asof_date else datetime.utcnow().date().isoformat()
-            out_file = out_root / args.ticker.upper() / f"{args.ticker.upper()}_{asof_out}.txt"
+            out_file = out_root / args.ticker.upper() / f"{args.ticker.upper()}_{asof_out}.md"
 
             # Build evidence bundle for LLM
             evidence = {
@@ -428,6 +428,7 @@ def main() -> int:
                     "sec_signals": sec_signals if 'sec_signals' in locals() else None,
                     "sec_classification": sec_class if 'sec_class' in locals() else None,
                     "sec_confidence": sec_conf if 'sec_conf' in locals() else None,
+                    "sec_filings": result.get('selected'),
                     "av_metrics": avm if 'avm' in locals() else None,
                     "insiders_summary": ins_summary if 'ins_summary' in locals() else None,
                     "llm_memo": memo_text,
