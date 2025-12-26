@@ -19,11 +19,17 @@ Core goals:
 
 
 ## Requirements
-- Python 3.11+
+- Python >= 3.10 and < 3.12 (3.10–3.11)
 - Recommended: a virtual environment
 - Internet access to SEC and optional Alpha Vantage/OpenAI endpoints
 
 Python dependencies are declared in `pyproject.toml` and installed via pip or uv.
+This project intentionally targets Python 3.10–3.11. Python 3.12+ is not yet supported.
+
+Tip (uv + Python 3.10 on Windows PowerShell):
+- `uv python install 3.10`
+- `uv run --python 3.10 -m ai_investing.run --help`
+- Or create a 3.10 venv: `uv venv --python 3.10 .venv310; .\.venv310\Scripts\Activate.ps1; uv sync`
 
 
 ## Quickstart
