@@ -124,6 +124,20 @@ Flags summary:
 - `--verbose` increase verbosity
 
 
+## LSTM Stock Forecast (PyTorch)
+A standalone example under `lstm_stock_market_forecast/` trains a small LSTM on Alpha Vantage daily adjusted prices and plots predictions. It is self‑contained, uses the Alpha Vantage demo key by default, and runs on CPU.
+
+How to run (your command):
+
+- `uv run --python 3.10 lstm_stock_market_forecast/project.py`
+
+Notes:
+- Edit `lstm_stock_market_forecast/project.py` to change the ticker symbol (default `IBM`) in the `config["alpha_vantage"]["symbol"]` field.
+- By default it uses the Alpha Vantage demo key inside the script. To use your own key, change `TimeSeries(key='demo')` to your key or wire `config["alpha_vantage"]["key"]` into that call.
+- The script opens Matplotlib windows and prints the predicted next‑day close; if running headless, set a non‑GUI backend (e.g., add `import matplotlib; matplotlib.use('Agg')`) or adjust to save figures.
+- Dependencies are managed via this repo’s `pyproject.toml` and `uv.lock`; running with `uv` will resolve them automatically for Python 3.10.
+
+
 ## Outputs
 Artifacts are written under `OUTPUT_DIR` (default `reports/`):
 - Final report: `reports/<TICKER>/<TICKER>_YYYY-MM-DD.md`
