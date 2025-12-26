@@ -69,18 +69,24 @@ Notes:
 
 
 ## Usage
-The main entry point is `run.py`. Ticker→CIK resolution is not yet implemented, so for a full end‑to‑end run you should pass both `--ticker` (for output path naming) and `--cik` (to fetch SEC data).
+The main entry point is the module `ai_investing.run`. Ticker→CIK resolution is not yet implemented, so for a full end‑to‑end run you should pass both `--ticker` (for output path naming) and `--cik` (to fetch SEC data).
+
+Quick test command (copy/paste):
+
+```
+python3 -m ai_investing.run --ticker AAPL --cik 0000320193 --out report
+```
 
 Basic help:
 
 ```
-python run.py --help
+python3 -m ai_investing.run --help
 ```
 
 End‑to‑end SEC‑only run (Apple example):
 
 ```
-python run.py \
+python3 -m ai_investing.run \
   --ticker AAPL \
   --cik 0000320193 \
   --out reports \
@@ -90,7 +96,7 @@ python run.py \
 Include Alpha Vantage fundamentals and insiders (requires `ALPHAVANTAGE_API_KEY`):
 
 ```
-python run.py \
+python3 -m ai_investing.run \
   --ticker AAPL \
   --cik 0000320193 \
   --alpha-vantage
@@ -99,7 +105,7 @@ python run.py \
 Add an LLM memo (requires `OPENAI_API_KEY`):
 
 ```
-python run.py --ticker AAPL --cik 0000320193 --alpha-vantage --llm
+python3 -m ai_investing.run --ticker AAPL --cik 0000320193 --alpha-vantage --llm
 ```
 
 Flags summary:
