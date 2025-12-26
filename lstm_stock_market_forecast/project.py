@@ -78,5 +78,6 @@ xticks = [data_date[i] if ((i%config["plots"]["xticks_interval"]==0 and (num_dat
 x = np.arange(0,len(xticks))
 plt.xticks(x, xticks, rotation='vertical')
 plt.title("Daily close price for " + config["alpha_vantage"]["symbol"] + ", " + display_date_range)
-plt.grid(b=None, which='major', axis='y', linestyle='--')
+# 'b' arg was deprecated/removed; use 'visible' or omit it.
+plt.grid(which='major', axis='y', linestyle='--')
 plt.show()
